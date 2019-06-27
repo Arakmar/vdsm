@@ -85,9 +85,17 @@ def main():
         return
     thin = backend == BACKEND_LVM_THIN
     disk = hooking.read_json()
-    replace_disk(disk, thin)
-    hooking.write_json(disk)
 
+    if os.environ.get('localdisk_list') is None:
+        hooking.log("localdisk-hook: Skipping, empty localdisk_list")
+        return
+
+    allowed_list = json.loads(os.environ.get('localdisk_list'))
+    if disk["imageID"] in allowed_list:
+        replace_disk(disk, thin)
+        hooking.write_json(disk)
+    else:
+        hooking.log("localdisk-hook: Not included %s" % disk['imageID'])
 
 def replace_disk(disk, thin):
     vm_id = os.environ['vmId']

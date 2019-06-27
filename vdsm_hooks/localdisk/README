@@ -69,7 +69,7 @@ if needed.
 The system administrator need to configure the engine
 UserDefinedVMProperties to support the 'localdisk' hook:
 
-    engine-config -s UserDefinedVMProperties='localdisk=^(lvm|lvmthin)$'
+    engine-config -s UserDefinedVMProperties='localdisk=^(lvm|lvmthin)$;localdisk_list=^.*$'
 
 Restart the engine.
 
@@ -79,6 +79,7 @@ Restart the engine.
 On the VM configuration UI:
 
 - Add custom VM property of "localdisk" with "lvm" or "lvmthin".
+- Add the IDs of disks allowed to be created locally as a JSON array in the "localdisk_list" property
 - On the "Host" tab, enable "Start Running On:" and select a host with a
   "ovirt-local" volume group.
 - On the "Host" tab, in "Migration mode :" select  "Do not allow
