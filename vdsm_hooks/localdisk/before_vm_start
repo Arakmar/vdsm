@@ -1,0 +1,81 @@
+#!/usr/bin/python2
+#
+# Copyright 2019 Yoann Laissus
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+#
+# Refer to the README and COPYING files for full details of the license
+#
+
+from __future__ import absolute_import
+
+import os
+from xml.dom import minidom
+
+from vdsm.hook import hooking
+
+def main():
+    backend = os.environ.get('localdisk')
+    if backend is None:
+        return
+
+    domxml = hooking.read_domxml()
+    
+    dom = _find_element_by_tag_name(domxml, 'domain')
+    devs = _find_element_by_tag_name(dom, 'devices')
+    for dev in _get_child_nodes(devs):
+        if dev.nodeName != 'disk' or dev.getAttribute('type') != 'block':
+            continue
+        driver = _find_element_by_tag_name(dev, 'driver')
+        cache = driver.getAttribute('cache')
+        if cache != 'none':
+            continue
+        driver.setAttribute('io', 'native')
+        
+        alias = _find_element_by_tag_name(dev, 'alias')
+        hooking.log("Using aio=native for %s" % alias.getAttribute('name'))
+
+    hooking.write_domxml(domxml)
+
+def _find_element_by_tag_name(parent, name):
+    """
+    Find a node with tag `name' in the direct childrens
+    of the `parent' node. Raise LookupError() otherwise.
+    Compare with xml.dom.minidom's getElementsByTagName
+    which will recursively scan all the children of the given
+    `parent' node.
+    """
+    for node in _get_child_nodes(parent):
+        if node.tagName == name:
+            return node
+    raise LookupError(
+        "Cannot find node with tag '{name}' in {parent_xml}".format(
+            name=name, parent_xml=parent.toxml(encoding='utf-8')
+        )
+    )
+
+def _get_child_nodes(node):
+    """
+    Get all child nodes of the given parent `node'.
+    Use this helper to skip other child Elements, like
+    ELEMENT_TEXT.
+    """
+    for node in node.childNodes:
+        if node.nodeType != minidom.Node.ELEMENT_NODE:
+            continue
+        yield node
+
+
+main()
